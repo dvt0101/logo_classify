@@ -14,6 +14,8 @@ import copy
 import cv2
 from dataloader import *
 import argparse
+from PIL import Image
+import numpy as np
 
 def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num_epochs=25):
     since = time.time()
@@ -39,7 +41,7 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
             for inputs, labels in dataloaders[phase]:
                 inputs = inputs.to(device)
                 labels = labels.to(device)
-            
+
                 # zero the parameter gradients
                 optimizer.zero_grad()
 
@@ -48,6 +50,7 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
                 with torch.set_grad_enabled(phase == 'train'):
                     outputs = model(inputs)
                     _, preds = torch.max(outputs, 1)
+                    # print(outputs, labels)
                     loss = criterion(outputs, labels)
 
                     # backward + optimize only if in training phase
@@ -90,7 +93,7 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
     # model.load_state_dict(best_model_wts)
     return model
 
-def main_train(model, dataloaders, device):
+def main_train(model, dataloaders, device, num_epochs):
 
     criterion = nn.CrossEntropyLoss()
 
@@ -102,19 +105,62 @@ def main_train(model, dataloaders, device):
 
     
     model_ft = train_model(model, dataloaders, criterion, optimizer_ft, exp_lr_scheduler, device,
-                       num_epochs=25)
+                       num_epochs=num_epochs)
+    return model_ft
 
-def evaluate(model, checkpoint_, device):
+def evaluate(model, checkpoint_, dataloader, device, test_dataloader):
     
-    img = cv2.imread('/home/vietthangtik15/cv/dataset/val/adidas/4.Adidas-Logo.jpg')
-    img = img.transpose((2, 0, 1))
-    img = torch.tensor(img).unsqueeze(0).to(device, dtype=torch.float)
-    model = model.eval()
+
     checkpoint = torch.load(checkpoint_)
     model.load_state_dict(checkpoint['model_state_dict'])
-    print(model)
-    outputs = model(img)
-    _, preds = torch.max(outputs, 1)
+    model.eval()
+    model.to(device)
+    # print(model)
+    # for param_tensor in model.state_dict():
+    #     print(param_tensor, "\t", model.state_dict()[param_tensor].size())
+    data = '/home/vietthangtik15/cv/dataset/val/alcado'
+    # img = cv2.imread('/home/vietthangtik15/cv/dataset/val/adidas/4.Adidas-Logo.jpg')
+
+    data_transform = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
+
+    list_image = os.listdir(data)
+    for image in list_image:
+        # img = cv2.imread(os.path.join(data, image))
+        # img = img / 255
+        # img = torch.from_numpy(img).float()
+        # img = img.permute(2, 0, 1)
+        # img = torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(img) 
+        # img = img.to(device).unsqueeze_(0)
+        img = Image.open(os.path.join(data, image))
+        # print(img.size)
+        img = data_transform(img).unsqueeze(0).to(device)
+        # print(img.shape)
+        # img = torchvision.transforms.ToTensor()(img).to(device)
+        # img = torch.tensor(img).unsqueeze(0).to(device, dtype=torch.float)
+        # img = data_transform(img)
+        outputs = model(img)
+        _, preds = torch.max(outputs, 1)
+        print(preds)
+
+    for inputs, labels in dataloaders['val']:
+        inputs = inputs.to(device)
+        # print(inputs[2])
+        # sample = torch.randn(1, 3, 224, 224)
+        # inp = inp[np.newaxis, :]
+        inp = inputs[0]
+        inp = inp.unsqueeze(0)
+        # inp = torch.cat((inp, sample), 0)        
+
+        # inp = inp.to(device)
+        outputs = model(inputs[0:2])
+        _, preds = torch.max(outputs, 1)
+        # import pdb; pdb.set_trace()
+        print(preds, labels[0:2])
     return preds
 
 if __name__ == "__main__":
@@ -123,19 +169,27 @@ if __name__ == "__main__":
     opt = parser.parse_args()
     
     data_dir = '/home/vietthangtik15/cv/dataset'
-    dataloaders, dataset_sizes, class_names, device = data_loader(data_dir)
-    # for inputs, labels in dataloaders['val']:
+    dataloaders, dataset_sizes, class_names, device, test_dataloader = data_loader(data_dir)
+    print(class_names)
+
+    # for inputs, labels in dataloaders['train']:
     #     print(labels)
+    # import pdb; pdb.set_trace()
     model_ft = models.resnet18(pretrained=True)
+    for param in model_ft.parameters():
+        param.requires_grad = False
     num_ftrs = model_ft.fc.in_features
 
-    model_ft.fc = nn.Linear(num_ftrs, 10)
-
+    model_ft.fc = nn.Linear(num_ftrs, 8)
+    # model_ft = nn.Sequential(model_ft, nn.Softmax(1))
     model_ft = model_ft.to(device)
     if opt.mode == 'train':
-        model = main_train(model_ft, dataloaders, device)
+        model = main_train(model_ft, dataloaders, device, 75)
+        for param in model.parameters():
+            param.requires_grad = True
+        model = main_train(model, dataloaders, device, 100)
     else:
         if opt.mode == 'evalute':
-            pred =  evaluate(model_ft, 'checkpoint.pth', device) 
+            pred =  evaluate(model_ft, 'checkpoint.pth', dataloaders, device, test_dataloader) 
             print(class_names)
             print(pred)
