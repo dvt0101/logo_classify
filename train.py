@@ -7,17 +7,20 @@ from torch.optim import lr_scheduler
 import numpy as np
 import torchvision
 from torchvision import datasets, models, transforms
-# import matplotlib.pyplot as plt
-import time
 import os
 import copy
 import cv2
 from dataloader import *
 import argparse
 from PIL import Image
-import numpy as np
 
-def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num_epochs=25):
+def model_init(num_class=8):
+    model_ft = models.resnet18(pretrained=True)
+    num_ftrs = model_ft.fc.in_features
+    model_ft.fc = nn.Linear(num_ftrs, 8)
+    return model_ft
+
+def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=25):
     since = time.time()
 
     best_model_wts = copy.deepcopy(model.state_dict())
@@ -93,7 +96,7 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
     # model.load_state_dict(best_model_wts)
     return model
 
-def main_train(model, dataloaders, device, num_epochs):
+def main_train(model, dataloaders, num_epochs):
 
     criterion = nn.CrossEntropyLoss()
 
@@ -108,88 +111,36 @@ def main_train(model, dataloaders, device, num_epochs):
                        num_epochs=num_epochs)
     return model_ft
 
-def evaluate(model, checkpoint_, dataloader, device, test_dataloader):
+def evaluate(model, checkpoint_, dataloader, labels):
     
 
-    checkpoint = torch.load(checkpoint_)
+    checkpoint = torch.load(checkpoint_, map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
     model.to(device)
-    # print(model)
-    # for param_tensor in model.state_dict():
-    #     print(param_tensor, "\t", model.state_dict()[param_tensor].size())
-    data = '/home/vietthangtik15/cv/dataset/val/alcado'
-    # img = cv2.imread('/home/vietthangtik15/cv/dataset/val/adidas/4.Adidas-Logo.jpg')
-
-    data_transform = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ])
-
-    list_image = os.listdir(data)
-    for image in list_image:
-        # img = cv2.imread(os.path.join(data, image))
-        # img = img / 255
-        # img = torch.from_numpy(img).float()
-        # img = img.permute(2, 0, 1)
-        # img = torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(img) 
-        # img = img.to(device).unsqueeze_(0)
-        img = Image.open(os.path.join(data, image))
-        # print(img.size)
-        img = data_transform(img).unsqueeze(0).to(device)
-        # print(img.shape)
-        # img = torchvision.transforms.ToTensor()(img).to(device)
-        # img = torch.tensor(img).unsqueeze(0).to(device, dtype=torch.float)
-        # img = data_transform(img)
-        outputs = model(img)
-        _, preds = torch.max(outputs, 1)
-        print(preds)
-
+    accuracy = 0
     for inputs, labels in dataloaders['val']:
         inputs = inputs.to(device)
-        # print(inputs[2])
-        # sample = torch.randn(1, 3, 224, 224)
-        # inp = inp[np.newaxis, :]
-        inp = inputs[0]
-        inp = inp.unsqueeze(0)
-        # inp = torch.cat((inp, sample), 0)        
-
-        # inp = inp.to(device)
-        outputs = model(inputs[0:2])
+        outputs = model(inputs)
         _, preds = torch.max(outputs, 1)
-        # import pdb; pdb.set_trace()
-        print(preds, labels[0:2])
-    return preds
+        accuracy += torch.sum(preds == labels.data)
+    accuracy = accuracy.double()/ dataset_sizes['val']
+    print('Accuracy: {:2f}'.format(accuracy))
+    return accuracy
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', default='train', help='train or evalute')
     opt = parser.parse_args()
     
-    data_dir = '/home/vietthangtik15/cv/dataset'
-    dataloaders, dataset_sizes, class_names, device, test_dataloader = data_loader(data_dir)
-    print(class_names)
+    data_dir = 'dataset'
+    dataloaders, dataset_sizes, class_names = data_loader(data_dir)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
 
-    # for inputs, labels in dataloaders['train']:
-    #     print(labels)
-    # import pdb; pdb.set_trace()
-    model_ft = models.resnet18(pretrained=True)
-    for param in model_ft.parameters():
-        param.requires_grad = False
-    num_ftrs = model_ft.fc.in_features
-
-    model_ft.fc = nn.Linear(num_ftrs, 8)
-    # model_ft = nn.Sequential(model_ft, nn.Softmax(1))
+    model_ft = model_init()
     model_ft = model_ft.to(device)
     if opt.mode == 'train':
         model = main_train(model_ft, dataloaders, device, 75)
-        for param in model.parameters():
-            param.requires_grad = True
-        model = main_train(model, dataloaders, device, 100)
-    else:
-        if opt.mode == 'evalute':
-            pred =  evaluate(model_ft, 'checkpoint.pth', dataloaders, device, test_dataloader) 
-            print(class_names)
-            print(pred)
+
+    elif opt.mode == 'evalute':
+            pred =  evaluate(model_ft, 'checkpoint.pth', dataloaders, class_names) 
