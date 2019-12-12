@@ -14,7 +14,8 @@ git clone https://github.com/dvt0101/logo_classify.git
  
 ### Preparation
 - Data preparation
-You can download our pretrained model from [google drive](https://drive.google.com/open?id=195Zn498Kdxm9ML_gW2dSw0sNwav2V9FL)
+
+You can download our pretrained model and dataset from [google drive](https://drive.google.com/open?id=195Zn498Kdxm9ML_gW2dSw0sNwav2V9FL)
 
 ### Training 
 
