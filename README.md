@@ -36,7 +36,7 @@ python train.py --mode evalute
 python application.py
 
 ```
-![alt text](78921263_583926199050922_6817008560778510336_n.png)
+![alt text](ui.png)
 
 
 
