@@ -20,7 +20,7 @@ def model_init(num_class=8):
     model_ft.fc = nn.Linear(num_ftrs, 8)
     return model_ft
 
-def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=25):
+def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs):
     since = time.time()
 
     best_model_wts = copy.deepcopy(model.state_dict())
@@ -96,7 +96,7 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=
     # model.load_state_dict(best_model_wts)
     return model
 
-def main_train(model, dataloaders, num_epochs):
+def main_train(model, dataloaders, num_epochs=25):
 
     criterion = nn.CrossEntropyLoss()
 
@@ -107,7 +107,7 @@ def main_train(model, dataloaders, num_epochs):
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
 
     
-    model_ft = train_model(model, dataloaders, criterion, optimizer_ft, exp_lr_scheduler, device,
+    model_ft = train_model(model, dataloaders, criterion, optimizer_ft, exp_lr_scheduler,
                        num_epochs=num_epochs)
     return model_ft
 
@@ -131,6 +131,7 @@ def evaluate(model, checkpoint_, dataloader, labels):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', default='train', help='train or evalute')
+    parser.add_argument('--epochs', default=25, type=int, help='Number of epoch')
     opt = parser.parse_args()
     
     data_dir = 'dataset'
@@ -140,7 +141,7 @@ if __name__ == "__main__":
     model_ft = model_init()
     model_ft = model_ft.to(device)
     if opt.mode == 'train':
-        model = main_train(model_ft, dataloaders, device, 75)
+        model = main_train(model_ft, dataloaders, num_epochs=opt.epochs)
 
     elif opt.mode == 'evalute':
             pred =  evaluate(model_ft, 'checkpoint.pth', dataloaders, class_names) 

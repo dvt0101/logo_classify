@@ -34,12 +34,13 @@ def interface(model, class_names):
         img_open.image = image
         img_open.place(x=0, y=30)
 
-        logo = predict(root.filename, model, class_names)
+        logo_pred = predict(root.filename, model, class_names)
 
-        logo = Label(root, text=logo, font=("Arial Bold", 15))
+        logo_label = Label(root, font=("Arial Bold", 15))
         prediction = Label(root, text='Predicted:')
         prediction.place(x=300, y=130)
-        logo.place(x = 300, y=150)
+        logo_label.configure(text=logo_pred)
+        logo_label.place(x = 300, y=150)
 
     btn_open = Button(root, text='Open', command=clicked)
     btn_open.grid(column=2, row=0)
