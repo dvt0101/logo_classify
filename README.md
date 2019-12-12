@@ -1,6 +1,10 @@
 # Fashion Logo classification
 ### Install
+
+```bash {.line-numbers}
 git clone https://github.com/dvt0101/logo_classify.git
+
+```
 
 ### Prerequisites  
  1. torch
